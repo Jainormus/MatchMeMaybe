@@ -6,6 +6,7 @@ import re
 from linkedin_jobs_scraper import LinkedinScraper
 from linkedin_jobs_scraper.events import Events, EventData, EventMetrics
 from linkedin_jobs_scraper.query import Query, QueryOptions, QueryFilters
+from job_transformer import transform_job_data
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -49,19 +50,24 @@ def on_data(data: EventData):
     # Convert relative time to actual date
     actual_date = parse_relative_time(data.date_text)
     
-    job_info = {
+    # Create raw job data
+    raw_job_data = {
         "job_id": data.job_id,
-        "link": data.link,
         "title": data.title,
         "company": data.company,
+        "description": data.description,
+        "date": actual_date.isoformat(),
+        "place": data.place,
         "company_link": data.company_link,
         "company_img_link": data.company_img_link,
-        "place": data.place,
-        "description": data.description,
-        "date": actual_date.isoformat(),  # Store as ISO format string
+        "link": data.link
     }
-    jobs_data.append(job_info)
-    print(f"[ON_DATA] {data.title} | {data.company} | {data.place} | {actual_date.isoformat()}")
+    
+    # Transform the job data
+    transformed_job = transform_job_data(raw_job_data)
+    if transformed_job:
+        jobs_data.append(transformed_job)
+        print(f"[ON_DATA] {data.title} | {data.company} | {data.place} | {actual_date.isoformat()}")
 
 # Callback for metrics (every 25 jobs)
 def on_metrics(metrics: EventMetrics):
@@ -73,10 +79,15 @@ def on_error(error):
 
 # Callback when scraping ends
 def on_end():
-    # Write all collected data to a JSON file
-    with open('linkedin_jobs.json', 'w', encoding='utf-8') as f:
+    # Create filename with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'linkedin_jobs_{timestamp}.json'
+    
+    # Write all collected data to a JSON file with pretty formatting
+    with open(filename, 'w', encoding='utf-8') as f:
         json.dump(jobs_data, f, indent=2, ensure_ascii=False)
-    print("[ON_END] Scraping finished. Data saved to linkedin_jobs.json")
+    print(f"[ON_END] Scraping finished. Data saved to {filename}")
+    print(f"Total jobs scraped: {len(jobs_data)}")
 
 # Create the scraper
 scraper = LinkedinScraper(
@@ -100,7 +111,7 @@ queries = [
         query="Software Engineer",  # Change job title as needed
         options=QueryOptions(
             locations=["San Francisco, CA, United States"],  # Change to your nearby area
-            limit=60,  # Number of jobs to scrape
+            limit=10,  # Number of jobs to scrape
             filters=QueryFilters(
                 # Optional: add filters such as time, type, experience, etc.
                 # time=TimeFilters.WEEK,

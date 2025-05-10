@@ -7,24 +7,22 @@ import re
 from botocore.exceptions import ClientError
 import time
 from functools import lru_cache
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # AWS Configuration
-AWS_REGION = 'us-west-2'  # Change to your region
+AWS_REGION = os.getenv('AWS_REGION', 'us-west-2')
 MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
 
 # Initialize AWS clients with error handling
 try:
-    bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
-    dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
-    table = dynamodb.Table('JobsTable')
-    
-    # Verify table exists
-    table.load()
+    session = boto3.Session()
+    bedrock = session.client('bedrock-runtime', region_name=AWS_REGION)
+    logger.info("Successfully initialized AWS Bedrock client")
 except ClientError as e:
     logger.error(f"AWS initialization error: {str(e)}")
     raise
@@ -36,26 +34,10 @@ def validate_text_length(text: str, max_length: int = 8000) -> str:
         return text[:max_length]
     return text
 
-@lru_cache(maxsize=100)
 def get_bedrock_embedding(text: str) -> List[float]:
-    """Generate embeddings using Amazon Titan with retries and caching"""
-    text = validate_text_length(text)
-    
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = bedrock.invoke_model(
-                modelId='anthropic.claude-3-5-sonnet-20241022-v2:0',
-                body=json.dumps({
-                    'inputText': text
-                })
-            )
-            response_body = json.loads(response['body'].read())
-            return response_body['embedding']
-        except Exception as e:
-            if attempt == MAX_RETRIES - 1:
-                logger.error(f"Failed to generate embedding after {MAX_RETRIES} attempts: {str(e)}")
-                return []
-            time.sleep(RETRY_DELAY * (attempt + 1))
+    """Placeholder for embedding generation - returns empty list for now"""
+    # TODO: Implement actual embedding generation
+    return []
 
 def validate_job_details(details: Dict[str, str]) -> Dict[str, str]:
     """Validate and normalize job details"""
@@ -68,51 +50,37 @@ def validate_job_details(details: Dict[str, str]) -> Dict[str, str]:
         'industry': details.get('industry', 'UNKNOWN').upper()
     }
 
-@lru_cache(maxsize=100)
 def infer_job_details(description: str) -> Dict[str, str]:
-    """Use Bedrock to infer job type, experience level, and industry with caching"""
-    try:
-        description = validate_text_length(description)
-        prompt = f"""Analyze this job description and extract:
-        1. Job type (FULL_TIME, CONTRACT, PART_TIME, INTERNSHIP)
-        2. Experience level (ENTRY, MID, SENIOR)
-        3. Industry (TECH, FINANCE, HEALTHCARE, etc.)
-        
-        Job Description:
-        {description}
-        
-        Return as JSON with keys: job_type, exp_level, industry"""
-        
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = bedrock.invoke_model(
-                    modelId='anthropic.claude-3-5-sonnet-20241022-v2:0',
-                    body=json.dumps({
-                        'prompt': prompt,
-                        'max_tokens': 200,
-                        'temperature': 0.1
-                    })
-                )
-                
-                response_body = json.loads(response['body'].read())
-                details = json.loads(response_body['completion'])
-                return validate_job_details(details)
-            except Exception as e:
-                if attempt == MAX_RETRIES - 1:
-                    logger.error(f"Failed to infer job details after {MAX_RETRIES} attempts: {str(e)}")
-                    return {
-                        'job_type': 'UNKNOWN',
-                        'exp_level': 'UNKNOWN',
-                        'industry': 'UNKNOWN'
-                    }
-                time.sleep(RETRY_DELAY * (attempt + 1))
-    except Exception as e:
-        logger.error(f"Error in job details inference: {str(e)}")
-        return {
-            'job_type': 'UNKNOWN',
-            'exp_level': 'UNKNOWN',
-            'industry': 'UNKNOWN'
-        }
+    """Simple job details inference based on keywords"""
+    description = description.lower()
+    
+    # Simple keyword-based inference
+    job_type = 'UNKNOWN'
+    if any(word in description for word in ['full-time', 'full time', 'permanent']):
+        job_type = 'FULL_TIME'
+    elif any(word in description for word in ['contract', 'temporary', 'temp']):
+        job_type = 'CONTRACT'
+    elif any(word in description for word in ['part-time', 'part time']):
+        job_type = 'PART_TIME'
+    elif any(word in description for word in ['intern', 'internship']):
+        job_type = 'INTERNSHIP'
+    
+    exp_level = 'UNKNOWN'
+    if any(word in description for word in ['senior', 'lead', 'principal']):
+        exp_level = 'SENIOR'
+    elif any(word in description for word in ['mid-level', 'mid level', 'intermediate']):
+        exp_level = 'MID'
+    elif any(word in description for word in ['entry', 'junior', 'graduate']):
+        exp_level = 'ENTRY'
+    
+    # Default to TECH industry for now
+    industry = 'TECH'
+    
+    return {
+        'job_type': job_type,
+        'exp_level': exp_level,
+        'industry': industry
+    }
 
 def normalize_title(title: str) -> str:
     """Normalize job title for GSI1SK with improved normalization"""
@@ -144,27 +112,27 @@ def normalize_title(title: str) -> str:
     
     return title
 
-def transform_and_push_to_dynamodb(raw_job_json: Dict[str, Any]) -> bool:
-    """Transform raw job data and push to DynamoDB with improved error handling"""
+def transform_job_data(raw_job_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Transform raw job data into the desired format"""
     try:
         # Validate required fields
         required_fields = ['job_id', 'title', 'company', 'description', 'date']
         if not all(field in raw_job_json for field in required_fields):
             logger.error(f"Missing required fields in job data: {raw_job_json.get('job_id', 'UNKNOWN')}")
-            return False
+            return None
 
         # Generate embeddings
         combined_text = f"{raw_job_json['title']} {raw_job_json['description']}"
         search_embedding = get_bedrock_embedding(combined_text)
         
-        # Infer job details using Bedrock
+        # Infer job details
         job_details = infer_job_details(raw_job_json['description'])
         
         # Normalize title for GSI1SK
         normalized_title = normalize_title(raw_job_json['title'])
         
-        # Construct DynamoDB item
-        dynamo_item = {
+        # Construct transformed item
+        transformed_item = {
             "PK": f"JOB#{job_details['industry']}",
             "SK": f"POSTED#{raw_job_json['date']}#{raw_job_json['job_id']}",
             "GSI1PK": f"COMPANY#{raw_job_json['company']}",
@@ -172,7 +140,7 @@ def transform_and_push_to_dynamodb(raw_job_json: Dict[str, Any]) -> bool:
             "title": raw_job_json['title'],
             "company": raw_job_json['company'],
             "location": raw_job_json.get('place', 'UNKNOWN'),
-            "description": raw_job_json['description'],
+            "description": validate_text_length(raw_job_json['description']),
             "posted_date": raw_job_json['date'],
             "job_id": raw_job_json['job_id'],
             "search_embedding": search_embedding,
@@ -184,18 +152,8 @@ def transform_and_push_to_dynamodb(raw_job_json: Dict[str, Any]) -> bool:
             "processed_at": datetime.now().isoformat()
         }
         
-        # Push to DynamoDB with retries
-        for attempt in range(MAX_RETRIES):
-            try:
-                table.put_item(Item=dynamo_item)
-                logger.info(f"Successfully pushed job {raw_job_json['job_id']} to DynamoDB")
-                return True
-            except Exception as e:
-                if attempt == MAX_RETRIES - 1:
-                    logger.error(f"Failed to push to DynamoDB after {MAX_RETRIES} attempts: {str(e)}")
-                    return False
-                time.sleep(RETRY_DELAY * (attempt + 1))
+        return transformed_item
         
     except Exception as e:
-        logger.error(f"Error transforming/pushing job {raw_job_json.get('job_id', 'UNKNOWN')}: {str(e)}")
-        return False 
+        logger.error(f"Error transforming job {raw_job_json.get('job_id', 'UNKNOWN')}: {str(e)}")
+        return None 
