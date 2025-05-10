@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { uploadResumeToS3, saveProfileData } from '../services/s3Service';
 
 interface UserProfile {
   resume: File | null;
@@ -13,6 +14,9 @@ const Profile = () => {
   });
 
   const [resumeName, setResumeName] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleResumeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -32,6 +36,43 @@ const Profile = () => {
     });
   };
 
+  const handleSaveProfile = async () => {
+    if (!profile.resume) {
+      setError('Please upload your resume');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      // TODO: Replace with actual user ID from your auth system
+      const userId = 'user123';
+      
+      console.log('Starting resume upload...');
+      // Upload resume to S3
+      const resumeUrl = await uploadResumeToS3(profile.resume, userId);
+      console.log('Resume uploaded successfully:', resumeUrl);
+
+      console.log('Saving profile data...');
+      // Save profile data
+      await saveProfileData({
+        resumeUrl,
+        linkedinUrl: profile.linkedinUrl,
+        userId,
+      });
+      console.log('Profile data saved successfully');
+
+      setSuccess('Profile saved successfully!');
+    } catch (err) {
+      console.error('Detailed error:', err);
+      setError('Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <motion.div
@@ -41,6 +82,18 @@ const Profile = () => {
         className="bg-white rounded-xl shadow-lg p-8"
       >
         <h1 className="text-3xl font-bold mb-8">Profile</h1>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+            {success}
+          </div>
+        )}
 
         {/* Resume Upload */}
         <section className="mb-8">
@@ -87,13 +140,13 @@ const Profile = () => {
 
         <div className="mt-8 flex justify-end">
           <button
-            onClick={() => {
-              // Handle profile save
-              console.log('Saving profile:', profile);
-            }}
-            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            className={`px-6 py-3 bg-primary-600 text-white rounded-lg transition-colors ${
+              isSaving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-700'
+            }`}
           >
-            Save Profile
+            {isSaving ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
       </motion.div>
