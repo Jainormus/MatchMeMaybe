@@ -1,0 +1,5 @@
+linkedin-jobs-scraper
+boto3
+opensearch-py
+sentence-transformers
+python-dotenv 
