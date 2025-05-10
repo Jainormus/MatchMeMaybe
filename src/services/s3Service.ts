@@ -1,10 +1,11 @@
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client, S3_BUCKET_NAME, generateUniqueFileName } from '../config/aws';
 
 export interface ProfileData {
   resumeUrl: string;
   linkedinUrl: string;
   userId: string;
+  originalResumeName: string;
 }
 
 export const uploadResumeToS3 = async (file: File, userId: string): Promise<string> => {
@@ -48,5 +49,24 @@ export const saveProfileData = async (profileData: ProfileData): Promise<void> =
   } catch (error) {
     console.error('Error saving profile data to S3:', error);
     throw new Error('Failed to save profile data');
+  }
+};
+
+export const getProfileData = async (userId: string): Promise<ProfileData | null> => {
+  try {
+    const key = `profiles/${userId}/profile.json`;
+    
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+    });
+
+    const response = await s3Client.send(command);
+    const profileData = await response.Body?.transformToString();
+    
+    return profileData ? JSON.parse(profileData) : null;
+  } catch (error) {
+    console.error('Error fetching profile data:', error);
+    return null;
   }
 }; 

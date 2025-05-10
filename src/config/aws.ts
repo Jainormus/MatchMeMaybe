@@ -12,10 +12,16 @@ export const s3Client = new S3Client({
 
 export const S3_BUCKET_NAME = process.env.REACT_APP_S3_BUCKET_NAME || '';
 
-// Helper function to generate a unique file name
+// Helper function to generate a unique file name while preserving the original name
 export const generateUniqueFileName = (originalName: string): string => {
   const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 15);
+  const randomString = Math.random().toString(36).substring(2, 8);
   const extension = originalName.split('.').pop();
-  return `${timestamp}-${randomString}.${extension}`;
+  const baseName = originalName.substring(0, originalName.lastIndexOf('.'));
+  
+  // Replace spaces and special characters with hyphens
+  const sanitizedName = baseName.replace(/[^a-zA-Z0-9]/g, '-');
+  
+  // Combine timestamp, random string, and original name
+  return `${sanitizedName}-${timestamp}-${randomString}.${extension}`;
 }; 

@@ -1,22 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { uploadResumeToS3, saveProfileData } from '../services/s3Service';
+import { uploadResumeToS3, saveProfileData, getProfileData } from '../services/s3Service';
 
 interface UserProfile {
   resume: File | null;
   linkedinUrl: string;
+  resumeName: string;
+  originalResumeName: string;
 }
 
 const Profile = () => {
   const [profile, setProfile] = useState<UserProfile>({
     resume: null,
     linkedinUrl: '',
+    resumeName: '',
+    originalResumeName: '',
   });
 
-  const [resumeName, setResumeName] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        // TODO: Replace with actual user ID from your auth system
+        const userId = 'user123';
+        const savedProfile = await getProfileData(userId);
+        
+        if (savedProfile) {
+          setProfile(prev => ({
+            ...prev,
+            linkedinUrl: savedProfile.linkedinUrl,
+            resumeName: savedProfile.resumeUrl.split('/').pop() || '',
+            originalResumeName: savedProfile.originalResumeName || savedProfile.resumeUrl.split('/').pop() || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   const handleResumeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -24,8 +53,9 @@ const Profile = () => {
       setProfile({
         ...profile,
         resume: file,
+        resumeName: file.name,
+        originalResumeName: file.name,
       });
-      setResumeName(file.name);
     }
   };
 
@@ -37,7 +67,7 @@ const Profile = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (!profile.resume) {
+    if (!profile.resume && !profile.resumeName) {
       setError('Please upload your resume');
       return;
     }
@@ -50,17 +80,19 @@ const Profile = () => {
       // TODO: Replace with actual user ID from your auth system
       const userId = 'user123';
       
-      console.log('Starting resume upload...');
-      // Upload resume to S3
-      const resumeUrl = await uploadResumeToS3(profile.resume, userId);
-      console.log('Resume uploaded successfully:', resumeUrl);
+      let resumeUrl = '';
+      if (profile.resume) {
+        console.log('Starting resume upload...');
+        resumeUrl = await uploadResumeToS3(profile.resume, userId);
+        console.log('Resume uploaded successfully:', resumeUrl);
+      }
 
       console.log('Saving profile data...');
-      // Save profile data
       await saveProfileData({
-        resumeUrl,
+        resumeUrl: resumeUrl || profile.resumeName,
         linkedinUrl: profile.linkedinUrl,
         userId,
+        originalResumeName: profile.originalResumeName,
       });
       console.log('Profile data saved successfully');
 
@@ -72,6 +104,14 @@ const Profile = () => {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -104,7 +144,7 @@ const Profile = () => {
                 <div className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
                   <div className="text-center">
                     <p className="text-sm text-gray-600">
-                      {resumeName || 'Click to upload your resume'}
+                      {profile.originalResumeName || 'Click to upload your resume'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Supported formats: PDF, DOC, DOCX
@@ -118,6 +158,22 @@ const Profile = () => {
                   />
                 </div>
               </label>
+              {profile.originalResumeName && (
+                <button
+                  onClick={() => setProfile(prev => ({ 
+                    ...prev, 
+                    resume: null, 
+                    resumeName: '', 
+                    originalResumeName: '' 
+                  }))}
+                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                  title="Remove resume"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -126,14 +182,25 @@ const Profile = () => {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-4">LinkedIn Profile (Optional)</h2>
           <div className="space-y-4">
-            <div>
+            <div className="flex items-center gap-4">
               <input
                 type="url"
                 value={profile.linkedinUrl}
                 onChange={handleLinkedInChange}
                 placeholder="Enter your LinkedIn profile URL"
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
+              {profile.linkedinUrl && (
+                <button
+                  onClick={() => setProfile(prev => ({ ...prev, linkedinUrl: '' }))}
+                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                  title="Clear LinkedIn URL"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </section>
