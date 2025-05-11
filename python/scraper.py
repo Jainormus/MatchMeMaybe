@@ -7,12 +7,26 @@ from linkedin_jobs_scraper import LinkedinScraper
 from linkedin_jobs_scraper.events import Events, EventData, EventMetrics
 from linkedin_jobs_scraper.query import Query, QueryOptions, QueryFilters
 from job_transformer import transform_job_data
+from opensearch_client import OpenSearchClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set LinkedIn authentication cookie
 os.environ['LI_AT_COOKIE'] = 'AQEDAVqjf7EDx21DAAABlrurz3oAAAGW37hTek0AoJ3BSxqtwLOA9nfjVW2gam06X4VDyDoX6lKN2nwx3yyQBvwskqi9Ez8Vb5CgTtGAXHBS97kfz9kLejV7o6Iadt0z2yAfgM87_IOKmTbCAecBMf65'
+
+# Initialize OpenSearch client
+# OPENSEARCH_HOST = 'search-jobs-search-zl6crmr4fd77xvf75tji65sxxe.us-west-2.es.amazonaws.com'
+OPENSEARCH_HOST = 'search-new-job-search-vbyza4dcejvsdpmnb54hvy7su4.us-west-2.es.amazonaws.com'
+INDEX_NAME = 'jobs'
+opensearch_client = OpenSearchClient(OPENSEARCH_HOST)
+
+# Create index if it doesn't exist
+try:
+    opensearch_client.create_index(INDEX_NAME)
+except Exception as e:
+    logger.error(f"Error creating index: {str(e)}")
 
 # List to store all job data
 jobs_data = []
@@ -67,60 +81,43 @@ def on_data(data: EventData):
     transformed_job = transform_job_data(raw_job_data)
     if transformed_job:
         jobs_data.append(transformed_job)
-        print(f"[ON_DATA] {data.title} | {data.company} | {data.place} | {actual_date.isoformat()}")
+        logger.info(f"[ON_DATA] {data.title} | {data.company} | {data.place} | {actual_date.isoformat()}")
 
-# Callback for metrics (every 25 jobs)
-def on_metrics(metrics: EventMetrics):
-    print(f"[ON_METRICS] {metrics}")
-
-# Callback for errors
-def on_error(error):
-    print(f"[ON_ERROR] {error}")
-
-# Callback when scraping ends
+# Callback for when scraping is done
 def on_end():
-    # Create filename with timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'linkedin_jobs_{timestamp}.json'
-    
-    # Write all collected data to a JSON file with pretty formatting
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(jobs_data, f, indent=2, ensure_ascii=False)
-    print(f"[ON_END] Scraping finished. Data saved to {filename}")
-    print(f"Total jobs scraped: {len(jobs_data)}")
+    if jobs_data:
+        try:
+            # Bulk index all jobs
+            opensearch_client.bulk_index_jobs(INDEX_NAME, jobs_data)
+            logger.info(f"Successfully indexed {len(jobs_data)} jobs")
+        except Exception as e:
+            logger.error(f"Error indexing jobs: {str(e)}")
 
-# Create the scraper
-scraper = LinkedinScraper(
-    chrome_executable_path=None,  # Use default chromedriver in PATH
-    chrome_binary_location=None,  # Use default Chrome install
-    chrome_options=None,          # Default options
-    headless=True,                # Run Chrome in headless mode
-    max_workers=1,                # One thread/Chrome instance
-    slow_mo=0.5,                  # Slow down to avoid rate-limiting (0.5 for authenticated mode)
-    page_load_timeout=40
-)
+# Main scraping function
+def scrape_jobs():
+    scraper = LinkedinScraper(
+        headless=True,
+        max_workers=1,
+        slow_mo=1
+    )
 
-# Register event listeners
-scraper.on(Events.DATA, on_data)
-scraper.on(Events.ERROR, on_error)
-scraper.on(Events.END, on_end)
+    # Add event listeners
+    scraper.on(Events.DATA, on_data)
+    scraper.on(Events.END, on_end)
 
-# Define your search query and location
-queries = [
-    Query(
-        query="Healthcare",  # Change job title as needed
-        options=QueryOptions(
-            locations=["San Francisco, CA, United States"],  # Change to your nearby area
-            limit=5,  # Number of jobs to scrape
-            filters=QueryFilters(
-                # Optional: add filters such as time, type, experience, etc.
-                # time=TimeFilters.WEEK,
-                # type=[TypeFilters.FULL_TIME],
+    # Define queries
+    queries = [
+        Query(
+            query='Software Engineer',
+            options=QueryOptions(
+                locations=['United States'],
+                limit=5
             )
         )
-    )
-]
+    ]
 
-# Run the scraper
-scraper.run(queries)
-scraper.close()
+    # Run the scraper
+    scraper.run(queries)
+
+if __name__ == "__main__":
+    scrape_jobs()

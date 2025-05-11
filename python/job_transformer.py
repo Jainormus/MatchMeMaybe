@@ -8,6 +8,15 @@ from botocore.exceptions import ClientError
 import time
 from functools import lru_cache
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Get the path to the parent directory (where .env is located)
+parent_dir = Path(__file__).parent.parent
+env_path = parent_dir / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +29,12 @@ RETRY_DELAY = 1  # seconds
 
 # Initialize AWS clients with error handling
 try:
-    session = boto3.Session()
+    session = boto3.Session(
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        aws_session_token=os.getenv('AWS_SESSION_TOKEN'),
+        region_name=AWS_REGION
+    )
     bedrock = session.client('bedrock-runtime', region_name=AWS_REGION)
     logger.info("Successfully initialized AWS Bedrock client")
 except ClientError as e:
@@ -252,7 +266,6 @@ def transform_job_data(raw_job_json: Dict[str, Any]) -> Dict[str, Any]:
 
         # Generate embeddings
         combined_text = f"{raw_job_json['title']} {raw_job_json['description']}"
-        search_embedding = get_bedrock_embedding(combined_text)
         
         # Infer job details using both title and description
         job_details = infer_job_details(raw_job_json['description'], raw_job_json['title'])
@@ -275,7 +288,7 @@ def transform_job_data(raw_job_json: Dict[str, Any]) -> Dict[str, Any]:
             "description": validate_text_length(raw_job_json['description']),
             "posted_date": raw_job_json['date'],
             "job_id": raw_job_json['job_id'],
-            "search_embedding": search_embedding,
+            "search_embedding": [],
             "job_type": job_details['job_type'],
             "exp_level": job_details['exp_level'],
             "company_link": raw_job_json.get('company_link', ''),
