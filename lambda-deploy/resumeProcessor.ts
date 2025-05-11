@@ -15,7 +15,7 @@ interface ResumeSection {
 }
 
 interface ProcessedResume {
-  sections: ResumeSection[];
+  output: any;  // This will store the raw JSON from Claude
   metadata: {
     fileName: string;
     processedAt: string;
@@ -58,7 +58,7 @@ async function extractTextFromPDF(bucket: string, key: string): Promise<string> 
   return extractedText;
 }
 
-async function extractResumeSections(text: string): Promise<ResumeSection[]> {
+async function extractResumeSections(text: string): Promise<any> {
   const prompt = `You are a resume parser, and your output must be in JSON format. 
   The JSON should be an array of objects, each representing a section of the resume.
   Each object should have a "section" property that indicates the section name, and a "content" property that contains the content of the section.
@@ -92,56 +92,7 @@ async function extractResumeSections(text: string): Promise<ResumeSection[]> {
   // Log the entire response for debugging
   console.log('Full response from Claude:', JSON.stringify(responseBody, null, 2));
   
-  // Parse the response and structure it into sections
-  const sections: ResumeSection[] = [];
-  
-  // Get the content from the response
-  const content = responseBody.content[0].text;
-  console.log('Raw text content from Claude:', content);
-
-  // Split the content into sections
-  const sectionRegex = /(?:^|\n)([A-Z][A-Za-z\s]+):\n([\s\S]*?)(?=\n[A-Z][A-Za-z\s]+:|$)/g;
-  let match;
-
-  while ((match = sectionRegex.exec(content)) !== null) {
-    sections.push({
-      section: match[1].trim(),
-      content: match[2].trim(),
-    });
-  }
-
-  // If no sections were found, try a different format
-  if (sections.length === 0) {
-    const lines = content.split('\n');
-    let currentSection = '';
-    let currentContent = '';
-
-    for (const line of lines) {
-      if (line.match(/^[A-Z][A-Za-z\s]+:$/)) {
-        if (currentSection) {
-          sections.push({
-            section: currentSection,
-            content: currentContent.trim()
-          });
-        }
-        currentSection = line.replace(':', '').trim();
-        currentContent = '';
-      } else {
-        currentContent += line + '\n';
-      }
-    }
-
-    // Add the last section
-    if (currentSection) {
-      sections.push({
-        section: currentSection,
-        content: currentContent.trim()
-      });
-    }
-  }
-
-  console.log('Parsed sections:', sections);
-  return sections;
+  return JSON.parse(responseBody.content[0].text);
 }
 
 export const handler = async (event: S3Event): Promise<void> => {
@@ -162,12 +113,12 @@ export const handler = async (event: S3Event): Promise<void> => {
     console.log('Text extracted successfully');
 
     // Extract resume sections using Bedrock
-    const sections = await extractResumeSections(extractedText);
+    const claudeOutput = await extractResumeSections(extractedText);
     console.log('Sections extracted successfully');
 
     // Create the processed resume object
     const processedResume: ProcessedResume = {
-      sections,
+      output: claudeOutput,
       metadata: {
         fileName: key.split('/').pop() || '',
         processedAt: new Date().toISOString(),
