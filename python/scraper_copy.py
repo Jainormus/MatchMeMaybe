@@ -58,7 +58,7 @@ def get_latest_resume():
         
         # Parse the JSON content
         resume_data = json.loads(response['Body'].read().decode('utf-8'))
-        return resume_data['output']  # Return just the output section
+        return resume_data  # Return the entire resume data including search query
             
     except Exception as e:
         logger.error(f"Error reading resume from S3: {str(e)}")
@@ -110,7 +110,7 @@ def on_data(data: EventData):
         "link": data.link
     }
     
-    result = keep_or_reject(raw_job_data, resume)
+    result = keep_or_reject(raw_job_data, resume['output'])
     if result['keep']:
         try:
             # Add to DynamoDB
@@ -138,23 +138,33 @@ def scrape_jobs():
     global resume
     resume = get_latest_resume()
     if not resume:
-        logger.error("Could not load resume, skipping job")
+        logger.error("Could not load resume, skipping job scraping")
+        return
 
     # Add event listeners
     scraper.on(Events.DATA, on_data)
     scraper.on(Events.END, on_end)
 
-    # Define queries
+    # Get search queries from resume data
+    if not resume.get('searchQueries'):
+        logger.error("No search queries found in resume data")
+        return
+
+    # Define queries using all search queries from resume
     queries = [
         Query(
-            query='Software Engineer',
+            query=search_query['query'],
             options=QueryOptions(
-                locations=['United States'],
-                limit=30
+                locations=search_query['locations'],
+                limit=search_query['limit']
             )
         )
+        for search_query in resume['searchQueries']
     ]
-    #TODO: Make this query object above come from the resume processor lambda --> store in a file
+
+    logger.info(f"Running scraper with {len(queries)} different search queries")
+    for query in queries:
+        logger.info(f"Query: {query.query}, Locations: {query.options.locations}")
 
     # Run the scraper
     scraper.run(queries)

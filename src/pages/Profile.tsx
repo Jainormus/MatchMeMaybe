@@ -23,6 +23,8 @@ const Profile = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -68,6 +70,29 @@ const Profile = () => {
     });
   };
 
+  const checkJobProcessingStatus = async (userId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/jobs/status/${userId}`);
+      const data = await response.json();
+      
+      if (data.status === 'completed') {
+        setIsProcessing(false);
+        setProcessingStatus('');
+        navigate('/swipe');
+      } else if (data.status === 'processing') {
+        setProcessingStatus(data.message || 'Processing your resume and finding matching jobs...');
+        // Check again after 5 seconds
+        setTimeout(() => checkJobProcessingStatus(userId), 5000);
+      } else {
+        throw new Error('Unknown processing status');
+      }
+    } catch (err) {
+      console.error('Error checking job processing status:', err);
+      setError('Failed to check job processing status. Please try again.');
+      setIsProcessing(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!profile.resume && !profile.resumeName) {
       setError('Please upload your resume');
@@ -98,11 +123,16 @@ const Profile = () => {
       });
       console.log('Profile data saved successfully');
 
-      setSuccess('Profile saved successfully!');
-      navigate('/swipe');
+      setSuccess('Profile saved successfully! Starting job processing...');
+      setIsProcessing(true);
+      setProcessingStatus('Processing your resume and finding matching jobs...');
+      
+      // Start checking job processing status
+      checkJobProcessingStatus(userId);
     } catch (err) {
       console.error('Detailed error:', err);
       setError('Failed to save profile. Please try again.');
+      setIsProcessing(false);
     } finally {
       setIsSaving(false);
     }
@@ -135,6 +165,15 @@ const Profile = () => {
         {success && (
           <div className="mb-4 p-4 bg-green-100 dark:bg-green-900/50 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 rounded">
             {success}
+          </div>
+        )}
+
+        {isProcessing && (
+          <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900/50 border border-blue-400 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <p>{processingStatus}</p>
+            </div>
           </div>
         )}
 
