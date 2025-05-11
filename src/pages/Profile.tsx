@@ -117,12 +117,12 @@ const Profile = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-10"
       >
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Profile</h1>
 
@@ -218,6 +218,20 @@ const Profile = () => {
           >
             {isSaving ? 'Saving...' : 'Save Profile'}
           </button>
+        </div>
+      </motion.div>
+
+      {/* MMM Logo */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="flex justify-center items-center mt-12"
+      >
+        <div className="text-4xl font-bold bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent flex items-center gap-2">
+          <span className="text-primary-500">❤️</span>
+          MMM
+          <span className="text-primary-500">❤️</span>
         </div>
       </motion.div>
     </div>

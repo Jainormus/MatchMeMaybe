@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { HeartIcon, MapPinIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
+import Confetti from 'react-confetti';
 
 interface SavedJob {
   id: string;
@@ -47,6 +48,10 @@ const SavedJobs = () => {
   // Add sort order state
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiJobId, setConfettiJobId] = useState<string | null>(null);
+  const [confettiPosition, setConfettiPosition] = useState({ x: 0, y: 0 });
+
   // Save to localStorage whenever savedJobs changes
   useEffect(() => {
     localStorage.setItem('savedJobs', JSON.stringify(savedJobs));
@@ -83,16 +88,86 @@ const SavedJobs = () => {
     }
   };
 
-  const handleStatusChange = (jobId: string, newStatus: SavedJob['status']) => {
-    const updatedJobs = savedJobs.map(job =>
-      job.id === jobId ? { ...job, status: newStatus } : job
-    );
+  const handleStatusChange = (jobId: string, newStatus: SavedJob['status'], event: React.ChangeEvent<HTMLSelectElement>) => {
+    const updatedJobs = savedJobs.map(job => {
+      if (job.id === jobId) {
+        const oldStatus = job.status;
+        const updatedJob = { ...job, status: newStatus };
+        
+        // Trigger pop effect if status changes to "offered"
+        if (newStatus === 'offered' && oldStatus !== 'offered') {
+          const rect = event.target.getBoundingClientRect();
+          const x = rect.left + (rect.width / 2);
+          const y = rect.top;
+          setConfettiPosition({ x, y });
+          setShowConfetti(true);
+          setConfettiJobId(jobId);
+        }
+        
+        return updatedJob;
+      }
+      return job;
+    });
+    
     setSavedJobs(updatedJobs);
     localStorage.setItem('savedJobs', JSON.stringify(updatedJobs));
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto relative">
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
+          <Confetti
+            width={window.innerWidth}
+            height={window.innerHeight}
+            recycle={false}
+            numberOfPieces={50}
+            gravity={0.3}
+            initialVelocityX={15}
+            initialVelocityY={30}
+            confettiSource={{
+              x: confettiPosition.x,
+              y: confettiPosition.y,
+              w: 5,
+              h: 5
+            }}
+            style={{ position: 'fixed', top: 0, left: 0 }}
+            colors={['#FFD700', '#FFA500', '#FF69B4', '#00CED1', '#FF4500']}
+            onConfettiComplete={() => {
+              setShowConfetti(false);
+              setConfettiJobId(null);
+            }}
+          />
+          <div 
+            className="absolute w-8 h-8 rounded-full bg-yellow-400 animate-pop"
+            style={{
+              left: confettiPosition.x - 16,
+              top: confettiPosition.y - 16,
+              animation: 'pop 0.5s ease-out forwards'
+            }}
+          />
+        </div>
+      )}
+
+      <style>
+        {`
+          @keyframes pop {
+            0% {
+              transform: scale(0);
+              opacity: 1;
+            }
+            20% {
+              transform: scale(1.2);
+              opacity: 0.8;
+            }
+            100% {
+              transform: scale(1);
+              opacity: 0;
+            }
+          }
+        `}
+      </style>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -106,7 +181,7 @@ const SavedJobs = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="all">All Status</option>
+              <option value="all">Any Status</option>
               <option value="saved">Saved</option>
               <option value="applied">Applied</option>
               <option value="interviewing">Interviewing</option>
@@ -150,7 +225,7 @@ const SavedJobs = () => {
                 <div className="flex items-center space-x-4">
                   <select
                     value={job.status}
-                    onChange={(e) => handleStatusChange(job.id, e.target.value as SavedJob['status'])}
+                    onChange={(e) => handleStatusChange(job.id, e.target.value as SavedJob['status'], e)}
                     className={`px-3 py-1 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${getStatusColor(job.status)}`}
                   >
                     <option value="saved">Saved</option>
@@ -186,11 +261,14 @@ const SavedJobs = () => {
               </div>
 
               {job.status === 'saved' && (
-              <div className="mt-6 flex justify-end space-x-4">
-                <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-                  Apply Now
-                </button>
-              </div>
+                <div className="mt-6 flex justify-end">
+                  <button 
+                    onClick={() => handleStatusChange(job.id, 'applied', { target: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 0 }) } } as React.ChangeEvent<HTMLSelectElement>)}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    Apply Now
+                  </button>
+                </div>
               )}
             </motion.div>
           ))}
