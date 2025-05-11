@@ -94,14 +94,73 @@ const SavedJobs = () => {
         const oldStatus = job.status;
         const updatedJob = { ...job, status: newStatus };
         
-        // Trigger pop effect if status changes to "offered"
+        // Trigger effects based on status changes
+        const rect = event.target.getBoundingClientRect();
+        const x = rect.left + (rect.width / 2);
+        const y = rect.top;
+        setConfettiPosition({ x, y });
+        
         if (newStatus === 'offered' && oldStatus !== 'offered') {
-          const rect = event.target.getBoundingClientRect();
-          const x = rect.left + (rect.width / 2);
-          const y = rect.top;
-          setConfettiPosition({ x, y });
           setShowConfetti(true);
           setConfettiJobId(jobId);
+        } else if (newStatus === 'interviewing' && oldStatus !== 'interviewing') {
+          // Create multiple rockets with staggered timing
+          const positions = [
+            window.innerWidth * 0.2,  // 20% from left
+            window.innerWidth * 0.35, // 35% from left
+            window.innerWidth * 0.5,  // center
+            window.innerWidth * 0.65, // 65% from left
+            window.innerWidth * 0.8   // 80% from left
+          ];
+
+          // Shuffle the positions array to randomize firing order
+          const shuffledPositions = [...positions].sort(() => Math.random() - 0.5);
+
+          shuffledPositions.forEach((xPos, i) => {
+            // Random delay between 0 and 1.5 seconds
+            const randomDelay = Math.random() * 1500;
+            
+            setTimeout(() => {
+              const fireworkContainer = document.createElement('div');
+              fireworkContainer.className = 'firework-container';
+              fireworkContainer.style.left = `${xPos}px`;
+              fireworkContainer.style.top = `${window.innerHeight}px`;
+              document.body.appendChild(fireworkContainer);
+
+              // Create rocket with random height
+              const rocket = document.createElement('div');
+              rocket.className = 'firework-rocket';
+              // Random height between 40% and 80% of viewport height
+              const randomHeight = 40 + Math.random() * 40;
+              rocket.style.setProperty('--peak-height', `${randomHeight}vh`);
+              fireworkContainer.appendChild(rocket);
+
+              // Create explosion particles at rocket's peak
+              setTimeout(() => {
+                // Move container to rocket's final position
+                fireworkContainer.style.top = `${window.innerHeight * (1 - randomHeight/100)}px`;
+                
+                // Create multiple layers of particles for a fuller effect
+                for (let layer = 0; layer < 3; layer++) {
+                  for (let j = 0; j < 24; j++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'firework-particle';
+                    const angle = (j * 15) + (layer * 5); // Stagger angles between layers
+                    particle.style.setProperty('--angle', `${angle}deg`);
+                    particle.style.setProperty('--delay', `${layer * 0.2}s`);
+                    particle.style.setProperty('--size', `${4 + layer * 2}px`);
+                    particle.style.setProperty('--trail-length', `${20 + layer * 10}px`);
+                    fireworkContainer.appendChild(particle);
+                  }
+                }
+              }, 1000);
+              
+              // Remove firework after animation
+              setTimeout(() => {
+                fireworkContainer.remove();
+              }, 5000);
+            }, randomDelay);
+          });
         }
         
         return updatedJob;
@@ -162,6 +221,84 @@ const SavedJobs = () => {
             }
             100% {
               transform: scale(1);
+              opacity: 0;
+            }
+          }
+
+          .firework-container {
+            position: fixed;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+            z-index: 99999;
+          }
+
+          .firework-rocket {
+            position: absolute;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(to top, #ff4500, #ff0);
+            border-radius: 2px;
+            animation: shoot 1s ease-out forwards;
+            box-shadow: 0 0 10px #ff0;
+          }
+
+          .firework-particle {
+            position: absolute;
+            width: var(--size);
+            height: var(--size);
+            border-radius: 50%;
+            background: radial-gradient(circle at center,
+              #ff0 0%,
+              #ff4500 50%,
+              transparent 100%
+            );
+            animation: explode 2.5s ease-out forwards;
+            animation-delay: var(--delay);
+            box-shadow: 0 0 10px #ff0, 0 0 20px #ff4500;
+          }
+
+          .firework-particle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: var(--trail-length);
+            height: 2px;
+            background: linear-gradient(to right, #ff0, transparent);
+            transform-origin: left center;
+            transform: rotate(var(--angle));
+            opacity: 0.5;
+          }
+
+          @keyframes shoot {
+            0% {
+              transform: translateY(0) rotate(0deg);
+              opacity: 1;
+            }
+            100% {
+              transform: translateY(calc(-1 * var(--peak-height))) rotate(0deg);
+              opacity: 0;
+            }
+          }
+
+          @keyframes explode {
+            0% {
+              transform: translate(0, 0) scale(1);
+              opacity: 1;
+            }
+            20% {
+              transform: 
+                rotate(var(--angle))
+                translate(25vw, 0)
+                scale(1.2);
+              opacity: 1;
+            }
+            100% {
+              transform: 
+                rotate(var(--angle))
+                translate(50vw, 25vh)
+                scale(0);
               opacity: 0;
             }
           }
