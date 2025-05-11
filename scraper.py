@@ -108,10 +108,10 @@ scraper.on(Events.END, on_end)
 # Define your search query and location
 queries = [
     Query(
-        query="Software Engineer",  # Change job title as needed
+        query="Healthcare",  # Change job title as needed
         options=QueryOptions(
             locations=["San Francisco, CA, United States"],  # Change to your nearby area
-            limit=10,  # Number of jobs to scrape
+            limit=5,  # Number of jobs to scrape
             filters=QueryFilters(
                 # Optional: add filters such as time, type, experience, etc.
                 # time=TimeFilters.WEEK,
