@@ -1,64 +1,104 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { HeartIcon, MapPinIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { HeartIcon, MapPinIcon, ChartBarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Confetti from 'react-confetti';
 
 interface SavedJob {
-  id: string;
+  job_id: string;
   title: string;
   company: string;
-  location: string;
-  salary?: string;
-  savedDate: string;
+  place: string;
+  link: string;
+  match_percentage?: number;
+  saved_date: string;
   status: 'saved' | 'applied' | 'interviewing' | 'offered';
+  key_requirements?: string[];
+  key_descriptions?: string[];
 }
 
-// Initial mock data
-const initialSavedJobs: SavedJob[] = [
-    {
-      id: '1',
-      title: 'Senior Software Engineer',
-      company: 'Tech Corp',
-      location: 'San Francisco, CA',
-      salary: '$120k - $180k',
-      savedDate: '2024-02-20',
-      status: 'saved',
-    },
-    {
-      id: '2',
-      title: 'Full Stack Developer',
-      company: 'StartupX',
-      location: 'Remote',
-      salary: '$90k - $130k',
-      savedDate: '2024-02-19',
-      status: 'applied',
-    },
-];
-
 const SavedJobs = () => {
-  // Initialize state with data from localStorage or initial mock data
-  const [savedJobs, setSavedJobs] = useState<SavedJob[]>(() => {
-    const savedJobsFromStorage = localStorage.getItem('savedJobs');
-    return savedJobsFromStorage ? JSON.parse(savedJobsFromStorage) : initialSavedJobs;
-  });
-
-  // Add status filter state
+  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  // Add sort order state
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiJobId, setConfettiJobId] = useState<string | null>(null);
   const [confettiPosition, setConfettiPosition] = useState({ x: 0, y: 0 });
 
-  // Save to localStorage whenever savedJobs changes
   useEffect(() => {
-    localStorage.setItem('savedJobs', JSON.stringify(savedJobs));
-  }, [savedJobs]);
+    const fetchSavedJobs = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/saved-jobs');
+        if (!response.ok) {
+          throw new Error('Failed to fetch saved jobs');
+        }
+        const data = await response.json();
+        setSavedJobs(data);
+        setIsLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        setIsLoading(false);
+      }
+    };
 
-  const handleDeleteJob = (jobId: string) => {
-    setSavedJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+    fetchSavedJobs();
+  }, []);
+
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/saved-jobs/${jobId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete job');
+      }
+      
+      setSavedJobs(prevJobs => prevJobs.filter(job => job.job_id !== jobId));
+    } catch (error) {
+      console.error('Error deleting job:', error);
+    }
+  };
+
+  const handleStatusChange = async (jobId: string, newStatus: SavedJob['status'], event: React.ChangeEvent<HTMLSelectElement>) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/saved-jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update job status');
+      }
+
+      const updatedJobs = savedJobs.map(job => {
+        if (job.job_id === jobId) {
+          const oldStatus = job.status;
+          const updatedJob = { ...job, status: newStatus };
+          
+          if (newStatus === 'offered' && oldStatus !== 'offered') {
+            const rect = event.target.getBoundingClientRect();
+            const x = rect.left + (rect.width / 2);
+            const y = rect.top;
+            setConfettiPosition({ x, y });
+            setShowConfetti(true);
+            setConfettiJobId(jobId);
+          }
+          
+          return updatedJob;
+        }
+        return job;
+      });
+      
+      setSavedJobs(updatedJobs);
+    } catch (error) {
+      console.error('Error updating job status:', error);
+    }
   };
 
   // Filter jobs based on selected status
@@ -66,10 +106,10 @@ const SavedJobs = () => {
     statusFilter === 'all' ? true : job.status === statusFilter
   );
 
-  // Sort jobs based on savedDate
+  // Sort jobs based on saved_date
   const sortedAndFilteredJobs = [...filteredJobs].sort((a, b) => {
-    const dateA = new Date(a.savedDate).getTime();
-    const dateB = new Date(b.savedDate).getTime();
+    const dateA = new Date(a.saved_date).getTime();
+    const dateB = new Date(b.saved_date).getTime();
     return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
@@ -88,30 +128,21 @@ const SavedJobs = () => {
     }
   };
 
-  const handleStatusChange = (jobId: string, newStatus: SavedJob['status'], event: React.ChangeEvent<HTMLSelectElement>) => {
-    const updatedJobs = savedJobs.map(job => {
-      if (job.id === jobId) {
-        const oldStatus = job.status;
-        const updatedJob = { ...job, status: newStatus };
-        
-        // Trigger pop effect if status changes to "offered"
-        if (newStatus === 'offered' && oldStatus !== 'offered') {
-          const rect = event.target.getBoundingClientRect();
-          const x = rect.left + (rect.width / 2);
-          const y = rect.top;
-          setConfettiPosition({ x, y });
-          setShowConfetti(true);
-          setConfettiJobId(jobId);
-        }
-        
-        return updatedJob;
-      }
-      return job;
-    });
-    
-    setSavedJobs(updatedJobs);
-    localStorage.setItem('savedJobs', JSON.stringify(updatedJobs));
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-gray-600 dark:text-gray-300">Loading saved jobs...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-red-600 dark:text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto relative">
@@ -138,35 +169,8 @@ const SavedJobs = () => {
               setConfettiJobId(null);
             }}
           />
-          <div 
-            className="absolute w-8 h-8 rounded-full bg-yellow-400 animate-pop"
-            style={{
-              left: confettiPosition.x - 16,
-              top: confettiPosition.y - 16,
-              animation: 'pop 0.5s ease-out forwards'
-            }}
-          />
         </div>
       )}
-
-      <style>
-        {`
-          @keyframes pop {
-            0% {
-              transform: scale(0);
-              opacity: 1;
-            }
-            20% {
-              transform: scale(1.2);
-              opacity: 0.8;
-            }
-            100% {
-              transform: scale(1);
-              opacity: 0;
-            }
-          }
-        `}
-      </style>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -207,25 +211,27 @@ const SavedJobs = () => {
         <div className="grid gap-6">
           {sortedAndFilteredJobs.map((job) => (
             <motion.div
-              key={job.id}
+              key={job.job_id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <Link
-                    to={`/job/${job.id}`}
+                  <a
+                    href={job.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-xl font-semibold text-gray-900 dark:text-white hover:text-primary-600"
                   >
                     {job.title}
-                  </Link>
+                  </a>
                   <p className="text-lg text-gray-600 dark:text-gray-300 mt-1">{job.company}</p>
                 </div>
                 <div className="flex items-center space-x-4">
                   <select
                     value={job.status}
-                    onChange={(e) => handleStatusChange(job.id, e.target.value as SavedJob['status'], e)}
+                    onChange={(e) => handleStatusChange(job.job_id, e.target.value as SavedJob['status'], e)}
                     className={`px-3 py-1 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${getStatusColor(job.status)}`}
                   >
                     <option value="saved">Saved</option>
@@ -234,7 +240,7 @@ const SavedJobs = () => {
                     <option value="offered">Offered</option>
                   </select>
                   <button
-                    onClick={() => handleDeleteJob(job.id)}
+                    onClick={() => handleDeleteJob(job.job_id)}
                     className="text-red-500 hover:text-red-600 transition-colors"
                     aria-label="Delete job"
                   >
@@ -246,28 +252,59 @@ const SavedJobs = () => {
               <div className="mt-4 flex flex-wrap gap-4 text-gray-600 dark:text-gray-300">
                 <div className="flex items-center">
                   <MapPinIcon className="h-5 w-5 mr-1" />
-                  {job.location}
+                  {job.place}
                 </div>
-                {job.salary && (
+                {job.match_percentage && (
                   <div className="flex items-center">
-                    <CurrencyDollarIcon className="h-5 w-5 mr-1" />
-                    {job.salary}
+                    <ChartBarIcon className="h-5 w-5 mr-1" />
+                    {Math.round(job.match_percentage)}% Match
                   </div>
                 )}
                 <div className="flex items-center">
                   <HeartIcon className="h-5 w-5 mr-1" />
-                  Saved on {new Date(job.savedDate).toLocaleDateString()}
+                  Saved on {new Date(job.saved_date).toLocaleDateString()}
                 </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-6">
+                {job.key_requirements && job.key_requirements.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Requirements:</h4>
+                    <ul className="space-y-2">
+                      {job.key_requirements.map((req, i) => (
+                        <li key={i} className="flex items-start text-gray-600 dark:text-gray-300">
+                          <span className="w-2 h-2 bg-primary-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                          <span>{req}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {job.key_descriptions && job.key_descriptions.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Description:</h4>
+                    <ul className="space-y-2">
+                      {job.key_descriptions.map((desc, i) => (
+                        <li key={i} className="flex items-start text-gray-600 dark:text-gray-300">
+                          <span className="w-2 h-2 bg-primary-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                          <span>{desc}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {job.status === 'saved' && (
                 <div className="mt-6 flex justify-end">
-                  <button 
-                    onClick={() => handleStatusChange(job.id, 'applied', { target: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 0 }) } } as React.ChangeEvent<HTMLSelectElement>)}
+                  <a 
+                    href={job.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     Apply Now
-                  </button>
+                  </a>
                 </div>
               )}
             </motion.div>

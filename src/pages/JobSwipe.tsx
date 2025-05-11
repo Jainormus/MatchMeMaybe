@@ -6,14 +6,18 @@ import { HeartIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { Link } from 'react-router-dom';
 
 interface Job {
-  id: string;
+  job_id: string;
   title: string;
   company: string;
-  location: string;
+  place: string;
   description: string;
-  salary?: string;
-  requirements: string[];
-  postedDate: string;
+  date: string;
+  company_link?: string;
+  company_img_link?: string;
+  link: string;
+  key_requirements?: string[];
+  key_descriptions?: string[];
+  match_percentage?: number;
 }
 
 interface SavedJob {
@@ -36,9 +40,32 @@ const JobSwipe: React.FC = () => {
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [showWave, setShowWave] = useState(false);
   const [waveColor, setWaveColor] = useState<'green' | 'red'>('green');
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const lastSwipeTime = useRef<number>(0);
   const accumulatedDelta = useRef<number>(0);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/jobs');
+        if (!response.ok) {
+          throw new Error('Failed to fetch jobs');
+        }
+        const data = await response.json();
+        setJobs(data);
+        setHasMoreJobs(data.length > 0);
+        setIsLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        setIsLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
@@ -49,90 +76,7 @@ const JobSwipe: React.FC = () => {
     };
   }, []);
 
-  const jobs: Job[] = [
-    {
-      id: '1',
-      title: 'Senior Software Engineer',
-      company: 'Tech Corp',
-      location: 'San Francisco, CA',
-      description: 'We are looking for a Senior Software Engineer to join our team and help build scalable applications. You will be responsible for designing and implementing new features, mentoring junior developers, and contributing to architectural decisions.',
-      salary: '$120k - $180k',
-      requirements: ['React', 'TypeScript', 'Node.js', '5+ years experience'],
-      postedDate: new Date().toISOString().split('T')[0],
-    },
-    {
-      id: '2',
-      title: 'Frontend Developer',
-      company: 'DesignHub',
-      location: 'Remote',
-      description: 'Join our creative team as a Frontend Developer! We\'re looking for someone passionate about creating beautiful, responsive user interfaces and exceptional user experiences. You\'ll work closely with our design team to bring mockups to life.',
-      salary: '$90k - $130k',
-      requirements: ['Vue.js', 'CSS/SCSS', 'UI/UX Design', '3+ years experience'],
-      postedDate: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '3',
-      title: 'DevOps Engineer',
-      company: 'CloudScale',
-      location: 'New York, NY',
-      description: 'Help us build and maintain our cloud infrastructure! We need a DevOps Engineer to automate our deployment processes, manage our AWS infrastructure, and ensure our systems are secure and scalable.',
-      salary: '$130k - $160k',
-      requirements: ['AWS', 'Docker', 'Kubernetes', 'CI/CD', '4+ years experience'],
-      postedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '4',
-      title: 'Mobile App Developer',
-      company: 'AppWorks',
-      location: 'Austin, TX',
-      description: 'Looking for a Mobile App Developer to join our fast-growing team. You\'ll be developing cross-platform mobile applications using React Native and working on both iOS and Android platforms.',
-      salary: '$100k - $140k',
-      requirements: ['React Native', 'JavaScript', 'Mobile Development', '2+ years experience'],
-      postedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '5',
-      title: 'Backend Developer',
-      company: 'DataFlow',
-      location: 'Seattle, WA',
-      description: 'We\'re seeking a Backend Developer to help build our data processing pipeline. You\'ll be working with large datasets, implementing efficient algorithms, and ensuring our systems can handle high traffic.',
-      salary: '$110k - $150k',
-      requirements: ['Python', 'SQL', 'REST APIs', 'Data Processing', '3+ years experience'],
-      postedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '6',
-      title: 'Full Stack Developer',
-      company: 'StartupX',
-      location: 'Remote',
-      description: 'Join our early-stage startup as a Full Stack Developer! You\'ll be working on both frontend and backend, helping to build our product from the ground up. This is a great opportunity to wear many hats and make a big impact.',
-      salary: '$95k - $135k',
-      requirements: ['JavaScript', 'Node.js', 'React', 'MongoDB', '2+ years experience'],
-      postedDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '7',
-      title: 'AI/ML Engineer',
-      company: 'AI Solutions',
-      location: 'Boston, MA',
-      description: 'Help us build the next generation of AI-powered applications! We\'re looking for an AI/ML Engineer to develop and implement machine learning models, work with large datasets, and integrate AI solutions into our products.',
-      salary: '$140k - $190k',
-      requirements: ['Python', 'TensorFlow', 'Machine Learning', 'Data Science', '4+ years experience'],
-      postedDate: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-    {
-      id: '8',
-      title: 'Security Engineer',
-      company: 'SecureTech',
-      location: 'Washington, DC',
-      description: 'Join our security team to help protect our systems and data. You\'ll be responsible for implementing security measures, conducting security audits, and responding to security incidents.',
-      salary: '$130k - $170k',
-      requirements: ['Security', 'Network Security', 'Penetration Testing', '5+ years experience'],
-      postedDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    },
-  ];
-
-  const locations = ['all', ...jobs.map(job => job.location).filter((loc, i, arr) => arr.indexOf(loc) === i)];
+  const locations = ['all', ...jobs.map(job => job.place).filter((loc, i, arr) => arr.indexOf(loc) === i)];
 
   const filteredLocations = locations.filter(loc =>
     loc.toLowerCase().includes(locationSearch.toLowerCase())
@@ -149,9 +93,9 @@ const JobSwipe: React.FC = () => {
   }, []);
 
   const filteredJobs = jobs.filter(job => {
-    const locMatch = locationFilter === 'all' || job.location === locationFilter;
+    const locMatch = locationFilter === 'all' || job.place === locationFilter;
     const now = Date.now();
-    const postedTime = new Date(job.postedDate).getTime();
+    const postedTime = new Date(job.date).getTime();
     const dateMatch =
       dateFilter === 'all' ||
       (dateFilter === '24h' && now - postedTime <= 24 * 60 * 60 * 1000) ||
@@ -173,30 +117,58 @@ const JobSwipe: React.FC = () => {
     setHasMoreJobs(filteredJobs.length > 0);
   }, [locationFilter, dateFilter, filteredJobs.length]);
 
-  const handleSwipeRight = () => {
+  const handleSwipeRight = async () => {
     setWaveColor('green');
     setShowWave(true);
     const job = filteredJobs[currentIndex];
-    const stored = localStorage.getItem('savedJobs');
-    const saved: SavedJob[] = stored ? JSON.parse(stored) : [];
-    if (!saved.some(j => j.id === job.id)) {
-      saved.push({
-        id: job.id,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salary: job.salary,
-        savedDate: new Date().toISOString(),
-        status: 'saved',
+    
+    try {
+      // Save job to saved_jobs table
+      const response = await fetch(`http://localhost:8000/api/jobs/${job.job_id}/save`, {
+        method: 'POST',
       });
-      localStorage.setItem('savedJobs', JSON.stringify(saved));
-    }
-    setDirection(1);
-    setTimeout(() => {
-      moveToNextJob();
-      setDirection(0);
+      
+      if (!response.ok) {
+        throw new Error('Failed to save job');
+      }
+      
+      setDirection(1);
+      setTimeout(() => {
+        moveToNextJob();
+        setDirection(0);
+        setShowWave(false);
+      }, 200);
+    } catch (error) {
+      console.error('Error saving job:', error);
       setShowWave(false);
-    }, 200);
+    }
+  };
+
+  const handleSwipeLeft = async () => {
+    setWaveColor('red');
+    setShowWave(true);
+    const job = filteredJobs[currentIndex];
+    
+    try {
+      // Delete job from jobs table
+      const response = await fetch(`http://localhost:8000/api/jobs/${job.job_id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete job');
+      }
+      
+      setDirection(-1);
+      setTimeout(() => {
+        moveToNextJob();
+        setDirection(0);
+        setShowWave(false);
+      }, 200);
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      setShowWave(false);
+    }
   };
 
   const handleWheel = (e: Event) => {
@@ -273,6 +245,22 @@ const JobSwipe: React.FC = () => {
       setDirection(0);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 4rem)' }}>
+        <div className="text-xl text-gray-600 dark:text-gray-300">Loading jobs...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 4rem)' }}>
+        <div className="text-xl text-red-600 dark:text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   if (!hasMoreJobs || filteredJobs.length === 0 || currentIndex >= filteredJobs.length) {
     return (
@@ -381,21 +369,12 @@ const JobSwipe: React.FC = () => {
       <div className="relative w-full max-w-4xl flex items-center justify-center">
         <button
           className="absolute left-0 p-3 rounded-full bg-white/80 dark:bg-gray-800/80 shadow-lg hover:shadow-xl backdrop-blur-sm"
-          onClick={() => {
-            setWaveColor('red');
-            setShowWave(true);
-            setDirection(-1);
-            setTimeout(() => {
-              moveToNextJob();
-              setDirection(0);
-              setShowWave(false);
-            }, 200);
-          }}
+          onClick={handleSwipeLeft}
         >
           <XMarkIcon className="h-7 w-7 text-red-500" />
         </button>
         <motion.div
-          key={currentJob.id}
+          key={currentJob.job_id}
           initial={{ x: 0, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: direction * 500, opacity: 0 }}
@@ -409,27 +388,54 @@ const JobSwipe: React.FC = () => {
           <div className="h-full flex flex-col">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{currentJob.title}</h2>
             <h3 className="text-xl text-primary-600 dark:text-primary-400">{currentJob.company}</h3>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">{currentJob.location}</p>
-            {currentJob.salary && (
-              <p className="text-gray-700 dark:text-gray-200 font-medium mt-1">{currentJob.salary}</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">{currentJob.place}</p>
+            {currentJob.match_percentage && (
+              <p className="text-green-600 dark:text-green-400 font-medium mt-1">
+                Match: {Math.round(currentJob.match_percentage)}%
+              </p>
             )}
-            <div className="mt-3">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Requirements:</h4>
-              <ul className="mt-2 space-y-1">
-                {currentJob.requirements.map((req, i) => (
-                  <li key={i} className="flex items-center text-gray-600 dark:text-gray-300">
-                    <span className="w-2 h-2 bg-primary-500 rounded-full mr-2"></span>
-                    {req}
-                  </li>
-                ))}
-              </ul>
+            
+            <div className="mt-4 flex gap-6">
+              {/* Key Requirements */}
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Requirements:</h4>
+                <ul className="space-y-2">
+                  {currentJob.key_requirements?.map((req, i) => (
+                    <li key={i} className="flex items-start text-gray-600 dark:text-gray-300">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                      <span>{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              {/* Key Descriptions */}
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Description:</h4>
+                <ul className="space-y-2">
+                  {currentJob.key_descriptions?.map((desc, i) => (
+                    <li key={i} className="flex items-start text-gray-600 dark:text-gray-300">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                      <span>{desc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <p className="mt-3 text-gray-600 dark:text-gray-300 flex-grow line-clamp-4">
-              {currentJob.description}
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Posted on {new Date(currentJob.postedDate).toLocaleDateString()}
-            </p>
+
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Posted on {new Date(currentJob.date).toLocaleDateString()}
+              </p>
+              <a
+                href={currentJob.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                View on LinkedIn →
+              </a>
+            </div>
           </div>
         </motion.div>
         <button

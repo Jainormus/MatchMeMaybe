@@ -130,7 +130,7 @@ def on_end():
 def scrape_jobs():
     scraper = LinkedinScraper(
         headless=True,
-        max_workers=2,
+        max_workers=1,
         slow_mo=1
     )
 
@@ -150,10 +150,11 @@ def scrape_jobs():
             query='Software Engineer',
             options=QueryOptions(
                 locations=['United States'],
-                limit=5
+                limit=30
             )
         )
     ]
+    #TODO: Make this query object above come from the resume processor lambda --> store in a file
 
     # Run the scraper
     scraper.run(queries)
