@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Optional
 import re
 from botocore.exceptions import ClientError
 import time
-from functools import lru_cache
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -41,20 +40,20 @@ except ClientError as e:
     logger.error(f"AWS initialization error: {str(e)}")
     raise
 
-
-@lru_cache(maxsize=100)
-def keep_or_reject(job: Dict[str, Any]) -> Dict[str, str]:
-    """Use Bedrock to infer job type, experience level, and industry"""
-    prompt = f"""Here is a resume: {resume}\n
-    Here is a job description: {job}\n
-
-    You are being used by a job search engine to narrow down the jobs that the user should apply to.
-    Based on the resume and job description, if you think the resume is a good fit for the job and/or
-    has a good change of getting the user an interview, return a JSON object with the following fields:
-    {
+def keep_or_reject(job: Dict[str, Any], resume: Dict[str, Any]) -> Dict[str, Any]:
+    """Use Bedrock to determine if a job should be kept based on its description"""
+    prompt = f"""Here is a job description: {json.dumps(job)}\n
+    Here is a user's resume: {json.dumps(resume)}\n
+    You are being used by a job search engine to determine if this job should be kept in the database.
+    Based on the job description and the user's resume, if you think the user has a good chance of getting an interview,
+    return ONLY a JSON object with the following fields, nothing else. Think about the user's skills, experience, activities, projects, 
+    and education (especially whether they are still in school). Here is the formatting you must use for the JSON
+    (keep being true if the user has a good chance of getting an interview, false otherwise and 
+    match_percentage being 0-100 based on how well the user's resume matches the job description):
+    {{
         "keep": true/false,
         "match_percentage": 0-100
-    }
+    }}
     """
 
     for attempt in range(MAX_RETRIES):
@@ -73,7 +72,20 @@ def keep_or_reject(job: Dict[str, Any]) -> Dict[str, str]:
             )
             
             response_body = json.loads(response['body'].read())
-            return response_body
+            # Extract just the JSON part from the response
+            content = response_body['content'][0]['text']
+            # Find the JSON object in the response
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            if json_start != -1 and json_end != -1:
+                json_str = content[json_start:json_end]
+                return json.loads(json_str)
+            else:
+                logger.error("Could not find JSON in response")
+                return {
+                    "keep": False,
+                    "match_percentage": 0
+                }
             
         except Exception as e:
             logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
