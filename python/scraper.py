@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 os.environ['LI_AT_COOKIE'] = 'AQEDAVqjf7EDx21DAAABlrurz3oAAAGW37hTek0AoJ3BSxqtwLOA9nfjVW2gam06X4VDyDoX6lKN2nwx3yyQBvwskqi9Ez8Vb5CgTtGAXHBS97kfz9kLejV7o6Iadt0z2yAfgM87_IOKmTbCAecBMf65'
 
 # Initialize OpenSearch client
-# OPENSEARCH_HOST = 'search-jobs-search-zl6crmr4fd77xvf75tji65sxxe.us-west-2.es.amazonaws.com'
-OPENSEARCH_HOST = 'search-new-job-search-vbyza4dcejvsdpmnb54hvy7su4.us-west-2.es.amazonaws.com'
+OPENSEARCH_HOST = 'search-jobs-search-zl6crmr4fd77xvf75tji65sxxe.us-west-2.es.amazonaws.com'
+# OPENSEARCH_HOST = 'search-new-job-search-vbyza4dcejvsdpmnb54hvy7su4.us-west-2.es.amazonaws.com'
 INDEX_NAME = 'jobs'
 opensearch_client = OpenSearchClient(OPENSEARCH_HOST)
 
@@ -111,7 +111,7 @@ def scrape_jobs():
             query='Software Engineer',
             options=QueryOptions(
                 locations=['United States'],
-                limit=5
+                limit=50
             )
         )
     ]
