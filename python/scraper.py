@@ -123,3 +123,4 @@ queries = [
 
 # Run the scraper
 scraper.run(queries)
+scraper.close()

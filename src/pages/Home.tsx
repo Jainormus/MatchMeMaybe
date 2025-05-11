@@ -42,7 +42,7 @@ const Home = () => {
             MatchMeMaybe uses AI to help you discover and apply for jobs that match your skills and preferences.
           </p>
           <Link
-            to="/swipe"
+            to="/profile"
             className="inline-block bg-white text-primary-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors"
           >
             Start Swiping
@@ -58,35 +58,13 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
-            className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+            className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
           >
             <div className="text-4xl mb-4">{feature.icon}</div>
-            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-            <p className="text-gray-600">{feature.description}</p>
+            <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">{feature.title}</h3>
+            <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
           </motion.div>
         ))}
-      </section>
-
-      {/* CTA Section */}
-      <section className="text-center py-16 bg-gray-50 rounded-3xl">
-        <h2 className="text-3xl font-bold mb-4">Ready to Find Your Next Opportunity?</h2>
-        <p className="text-gray-600 mb-8">
-          Join thousands of job seekers who have found their dream jobs through MatchMeMaybe.
-        </p>
-        <div className="space-x-4">
-          <Link
-            to="/swipe"
-            className="inline-block bg-primary-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-700 transition-colors"
-          >
-            Get Started
-          </Link>
-          <Link
-            to="/profile"
-            className="inline-block bg-white text-primary-600 px-8 py-3 rounded-full font-semibold border-2 border-primary-600 hover:bg-primary-50 transition-colors"
-          >
-            Create Profile
-          </Link>
-        </div>
       </section>
     </div>
   );
