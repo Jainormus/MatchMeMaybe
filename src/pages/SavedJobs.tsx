@@ -100,10 +100,10 @@ const SavedJobs = () => {
         const y = rect.top;
         setConfettiPosition({ x, y });
         
-        if (newStatus === 'offered' && oldStatus !== 'offered') {
+        if (newStatus === 'interviewing' && oldStatus !== 'interviewing') {
           setShowConfetti(true);
           setConfettiJobId(jobId);
-        } else if (newStatus === 'interviewing' && oldStatus !== 'interviewing') {
+        } else if (newStatus === 'offered' && oldStatus !== 'offered') {
           // Create multiple rockets with staggered timing
           const positions = [
             window.innerWidth * 0.2,  // 20% from left
