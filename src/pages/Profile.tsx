@@ -70,10 +70,11 @@ const Profile = () => {
     });
   };
 
-  const checkJobProcessingStatus = async (userId: string) => {
+  const checkJobProcessingStatus = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/jobs/status/${userId}`);
+      const response = await fetch(`http://localhost:8000/api/jobs_status`);
       const data = await response.json();
+      console.log(data);
       
       if (data.status === 'completed') {
         setIsProcessing(false);
@@ -82,7 +83,7 @@ const Profile = () => {
       } else if (data.status === 'processing') {
         setProcessingStatus(data.message || 'Processing your resume and finding matching jobs...');
         // Check again after 5 seconds
-        setTimeout(() => checkJobProcessingStatus(userId), 5000);
+        setTimeout(() => checkJobProcessingStatus(), 5000);
       } else {
         throw new Error('Unknown processing status');
       }
@@ -128,7 +129,7 @@ const Profile = () => {
       setProcessingStatus('Processing your resume and finding matching jobs...');
       
       // Start checking job processing status
-      checkJobProcessingStatus(userId);
+      checkJobProcessingStatus();
     } catch (err) {
       console.error('Detailed error:', err);
       setError('Failed to save profile. Please try again.');

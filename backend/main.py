@@ -160,70 +160,16 @@ async def delete_saved_job(job_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/jobs/status/{user_id}")
-async def get_job_processing_status(user_id: str):
+@app.get("/api/jobs_status")
+async def get_job_processing_status():
     try:
-        # Check if there are any jobs in the jobs table for this user
-        response = jobs_table.scan(
-            FilterExpression='begins_with(job_id, :prefix)',
-            ExpressionAttributeValues={
-                ':prefix': f'USER#{user_id}#'
-            }
-        )
-        
-        if response.get('Items'):
-            # If there are jobs, processing is complete
-            return {
-                "status": "completed",
-                "message": "Job processing complete"
-            }
-        
-        # Check for the most recent processed resume in S3 for this user
-        try:
-            # List objects in the processed-resumes directory for this user
-            response = s3_client.list_objects_v2(
-                Bucket=S3_BUCKET_NAME,
-                Prefix=f'processed-resumes/{user_id}/'
-            )
-            
-            if 'Contents' in response:
-                # Sort by LastModified to get the most recent file
-                latest_file = max(response['Contents'], key=lambda x: x['LastModified'])
-                
-                # Get the content of the latest processed resume
-                resume_response = s3_client.get_object(
-                    Bucket=S3_BUCKET_NAME,
-                    Key=latest_file['Key']
-                )
-                resume_data = json.loads(resume_response['Body'].read().decode('utf-8'))
-                
-                # Check if the resume has search queries
-                if resume_data.get('searchQueries'):
-                    # If the processed resume has search queries but no jobs yet, it's still processing
-                    return {
-                        "status": "processing",
-                        "message": "Finding matching jobs..."
-                    }
-                else:
-                    # If the processed resume doesn't have search queries yet, it's still processing
-                    return {
-                        "status": "processing",
-                        "message": "Processing your resume..."
-                    }
-            else:
-                # If no processed resume exists yet, it's still processing
-                return {
-                    "status": "processing",
-                    "message": "Processing your resume..."
-                }
-        except Exception as e:
-            print(f"Error checking processed resume: {str(e)}")
-            # If there's an error checking S3, assume it's still processing
-            return {
-                "status": "processing",
-                "message": "Processing your resume..."
-            }
-            
+        # Scan the jobs table with a limit of 1 to check if there are any items
+        response = jobs_table.scan(Limit=1)
+        # Return true if there are any items in the table
+        if len(response.get('Items', [])) > 0:
+            return {"status": "completed"}
+        else:
+            return {"status": "processing"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
