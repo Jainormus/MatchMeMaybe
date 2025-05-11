@@ -7,8 +7,7 @@ import boto3
 from linkedin_jobs_scraper import LinkedinScraper
 from linkedin_jobs_scraper.events import Events, EventData, EventMetrics
 from linkedin_jobs_scraper.query import Query, QueryOptions, QueryFilters
-from job_transformer_copy import keep_or_reject
-from opensearch_client import OpenSearchClient
+from job_llm import keep_or_reject
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,17 +21,6 @@ os.environ['LI_AT_COOKIE'] = 'AQEDAVqjf7EDx21DAAABlrurz3oAAAGW37hTek0AoJ3BSxqtwL
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('jobs')
 s3_client = boto3.client('s3')
-
-# Initialize OpenSearch client
-OPENSEARCH_HOST = 'search-jobs-search-zl6crmr4fd77xvf75tji65sxxe.us-west-2.es.amazonaws.com'
-INDEX_NAME = 'jobs'
-opensearch_client = OpenSearchClient(OPENSEARCH_HOST)
-
-# Create index if it doesn't exist
-try:
-    opensearch_client.create_index(INDEX_NAME)
-except Exception as e:
-    logger.error(f"Error creating index: {str(e)}")
 
 def get_latest_resume():
     """Get the latest resume from S3 processed-resumes directory"""
