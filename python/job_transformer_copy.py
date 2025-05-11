@@ -45,11 +45,16 @@ def keep_or_reject(job: Dict[str, Any], resume: Dict[str, Any]) -> Dict[str, Any
     prompt = f"""Here is a job description: {json.dumps(job)}\n
     Here is a user's resume: {json.dumps(resume)}\n
     You are being used by a job search engine to determine if this job should be kept in the database.
-    Based on the job description and the user's resume, if you think the user has a good chance of getting an interview,
-    return ONLY a JSON object with the following fields, nothing else. Think about the user's skills, experience, activities, projects, 
-    and education (especially whether they are still in school). Here is the formatting you must use for the JSON
-    (keep being true if the user has a good chance of getting an interview, false otherwise and 
-    match_percentage being 0-100 based on how well the user's resume matches the job description):
+    Based on the job description and the user's resume, determine whether the user has a good chance of getting an interview.
+    Consider the user's skills, experience, activities, projects, and education (especially whether they are still in school).
+    If the user has a good chance of getting an interview, return a JSON object with the following fields:
+    {{
+        "keep": true,
+        "key_requirements": [list of key requirements for the job, keep it to 5 max],
+        "key_descriptions": [list of key descriptions of the job, keep it to 5 max],
+        "match_percentage": 0-100 (how well the user's resume matches the job description)
+    }}
+    If the user does not have a good chance of getting an interview, return a JSON object with the following fields:
     {{
         "keep": true/false,
         "match_percentage": 0-100

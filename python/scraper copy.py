@@ -114,6 +114,9 @@ def on_data(data: EventData):
     if result['keep']:
         try:
             # Add to DynamoDB
+            raw_job_data['key_requirements'] = result['key_requirements']
+            raw_job_data['key_descriptions'] = result['key_descriptions']
+            raw_job_data['match_percentage'] = result['match_percentage']
             table.put_item(Item=raw_job_data)
             logger.info(f"[ON_DATA] Added to DynamoDB: {data.title} | {data.company} | {data.place} | {actual_date.isoformat()}")
         except Exception as e:
@@ -127,7 +130,7 @@ def on_end():
 def scrape_jobs():
     scraper = LinkedinScraper(
         headless=True,
-        max_workers=1,
+        max_workers=2,
         slow_mo=1
     )
 
