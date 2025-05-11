@@ -16,6 +16,7 @@ env_path = parent_dir / '.env'
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path=env_path)
+os.environ["AWS_DEFAULT_REGION"] = os.getenv("AWS_REGION", "us-west-2")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
