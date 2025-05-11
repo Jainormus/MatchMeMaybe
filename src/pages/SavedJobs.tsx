@@ -35,7 +35,12 @@ const SavedJobs = () => {
           throw new Error('Failed to fetch saved jobs');
         }
         const data = await response.json();
-        setSavedJobs(data);
+        // Ensure every job has a status, default to 'saved' if missing
+        const jobsWithStatus = data.map((job: any) => ({
+          ...job,
+          status: job.status || 'saved',
+        }));
+        setSavedJobs(jobsWithStatus);
         setIsLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');

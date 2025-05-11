@@ -44,6 +44,8 @@ class Job(BaseModel):
     key_requirements: Optional[List[str]] = None
     key_descriptions: Optional[List[str]] = None
     match_percentage: Optional[float] = None
+    status: Optional[str] = None
+    saved_date: Optional[str] = None
 
 @app.get("/api/jobs", response_model=List[Job])
 async def get_jobs():
@@ -110,6 +112,7 @@ async def save_job(job_id: str):
 async def get_saved_jobs():
     try:
         response = saved_jobs_table.scan()
+        print(response)
         jobs = response.get('Items', [])
         
         # Sort jobs by saved date (most recent first)
